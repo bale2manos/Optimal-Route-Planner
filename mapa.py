@@ -41,12 +41,13 @@ class Mapa:
     def get_celda(self, fila, columna):
         if fila < 1 or fila > self.max_rows or columna < 1 or columna > self.max_columns:
             return None # Celda fuera de los límites del mapa
+
         return self.celdas[(fila-1)*self.max_columns + (columna-1)]
 
     def recargar_energia(self):
         ambulanciaX = self.ambulancia.celdaX
         ambulanciaY = self.ambulancia.celdaY
-        if self.get_celda(ambulanciaX, ambulanciaY).tipo == 'P':
+        if self.get_celda(ambulanciaX, ambulanciaY).tipo == 'P' and self.ambulancia.energia_left < 50:
             self.ambulancia.recargar_energia()
             return 0
         return -1
@@ -58,11 +59,9 @@ class Mapa:
 
         if celda_ambulancia.tipo == 'N' or celda_ambulancia.tipo == 'C':
             self.ambulancia.recoger_paciente(celda_ambulancia.tipo)
-            celda_ambulancia.tipo = 'P'
+            celda_ambulancia.tipo = '1'
             self.pacientes_restantes -= 1
             return 0
-            # TODO celda_ambulancia.tipo = 'C'  # Coste por defecto ya es 1
-            # TODO self.pacientes_restantes -= 1
         return -1
 
     def descargar_pacientes(self):
@@ -70,7 +69,7 @@ class Mapa:
         ambulanciaY = self.ambulancia.celdaY
         celda_ambulancia = self.get_celda(ambulanciaX, ambulanciaY)
 
-        if celda_ambulancia.tipo == 'CC' or celda_ambulancia.tipo == 'CN':
+        if (celda_ambulancia.tipo == 'CC' and self.ambulancia.pacientesC > 0) or (celda_ambulancia.tipo == 'CN' and self.ambulancia.pacientesN > 0):
             self.ambulancia.descargar_pacientes(celda_ambulancia.tipo)
             return 0
         return -1
@@ -79,8 +78,8 @@ class Mapa:
         ambulanciaX = self.ambulancia.celdaX
         ambulanciaY = self.ambulancia.celdaY
         celda_arriba = self.get_celda(ambulanciaX-1, ambulanciaY)
-        potencial_energia_restante = self.ambulancia.energia_left - celda_arriba.coste
         if celda_arriba:
+            potencial_energia_restante = self.ambulancia.energia_left - celda_arriba.coste
             if celda_arriba.tipo != 'X' and potencial_energia_restante >= 0:
                 self.ambulancia.mover_a(celda_arriba, potencial_energia_restante)
                 return celda_arriba.coste
@@ -90,8 +89,8 @@ class Mapa:
         ambulanciaX = self.ambulancia.celdaX
         ambulanciaY = self.ambulancia.celdaY
         celda_abajo = self.get_celda(ambulanciaX+1, ambulanciaY)
-        potencial_energia_restante = self.ambulancia.energia_left - celda_abajo.coste
         if celda_abajo:
+            potencial_energia_restante = self.ambulancia.energia_left - celda_abajo.coste
             if celda_abajo.tipo != 'X' and potencial_energia_restante >= 0:
                 self.ambulancia.mover_a(celda_abajo, potencial_energia_restante)
                 return celda_abajo.coste
@@ -101,8 +100,8 @@ class Mapa:
         ambulanciaX = self.ambulancia.celdaX
         ambulanciaY = self.ambulancia.celdaY
         celda_izquierda = self.get_celda(ambulanciaX, ambulanciaY-1)
-        potencial_energia_restante = self.ambulancia.energia_left - celda_izquierda.coste
         if celda_izquierda:
+            potencial_energia_restante = self.ambulancia.energia_left - celda_izquierda.coste
             if celda_izquierda.tipo != 'X' and potencial_energia_restante >= 0:
                 self.ambulancia.mover_a(celda_izquierda, potencial_energia_restante)
                 return celda_izquierda.coste
@@ -112,21 +111,30 @@ class Mapa:
         ambulanciaX = self.ambulancia.celdaX
         ambulanciaY = self.ambulancia.celdaY
         celda_derecha = self.get_celda(ambulanciaX, ambulanciaY+1)
-        potencial_energia_restante = self.ambulancia.energia_left - celda_derecha.coste
         if celda_derecha:
+            potencial_energia_restante = self.ambulancia.energia_left - celda_derecha.coste
             if celda_derecha.tipo != 'X' and potencial_energia_restante >= 0:
                 self.ambulancia.mover_a(celda_derecha, potencial_energia_restante)
                 return celda_derecha.coste
         return -1
 
     def a_estrella(self, heuristica):
-        inicio = self
+        inicio = copy.deepcopy(self)
         cola_prioridad = PriorityQueue()
-        cola_prioridad.put(Nodo(inicio, 0, 0, [inicio]))
+        cola_prioridad.put(Nodo(inicio, 0, 0, [inicio], 'Inicio', 0))
         costos_acumulados = {inicio: 0}
-
+        i = 1
         while not cola_prioridad.empty():
             nodo_actual = cola_prioridad.get()
+
+
+            print('Nodo actual: ', i, ' - ', nodo_actual.accion_previa, ' - ', nodo_actual.mapa.pacientes_restantes)
+            print('Coste acumulado: ', nodo_actual.coste_acumulado)
+            print('Heuristica: ', self.calcular_heuristica(nodo_actual.mapa, 1))
+            print('Prioridad: ', nodo_actual.prioridad)
+            print('Ambulancia: ', nodo_actual.mapa.ambulancia.celdaX, nodo_actual.mapa.ambulancia.celdaY, ' energía - ', nodo_actual.mapa.ambulancia.energia_left)
+
+
 
             if self.objetivo_cumplido(nodo_actual):
                 # Reconstruir el camino y devolverlo
@@ -139,7 +147,8 @@ class Mapa:
                     heuristica = self.calcular_heuristica(nuevo_estado, heuristica)
                     prioridad = nuevo_coste_acumulado + heuristica
                     nuevo_camino = nodo_actual.camino_recorrido + [nuevo_estado]
-                    cola_prioridad.put(Nodo(nuevo_estado, nuevo_coste_acumulado, prioridad, nuevo_camino))
+                    cola_prioridad.put(Nodo(nuevo_estado, nuevo_coste_acumulado, prioridad, nuevo_camino, accion, i))
+            i += 1
 
         # No hay camino posible
         return None
@@ -176,7 +185,7 @@ class Mapa:
     def calcular_heuristica(self, estado_actual, heuristica):
         #if heuristica == 1:
             # Calcula la heurística según el número de pacientes restantes
-            pacientes_restantes = estado_actual.pacientes_restantes
+            pacientes_restantes = estado_actual.pacientes_restantes + estado_actual.ambulancia.pacientesN + estado_actual.ambulancia.pacientesC
             return pacientes_restantes
 
     def objetivo_cumplido(self, nodo):

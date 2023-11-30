@@ -23,9 +23,9 @@ def main():
     if camino:
         # Escribir el camino en un archivo
         with open('camino_solucion.txt', 'w') as archivo_salida:
-            for nodo in camino:
-                celda = nodo.mapa.get_celda(nodo.ambulancia.celdaX, nodo.ambulancia.celdaY)
-                linea = f"({celda.fila},{celda.columna}):{celda.tipo}:{nodo.ambulancia.energia_left}\n"
+            for mapa in camino:
+                celda = mapa.get_celda(mapa.ambulancia.celdaX, mapa.ambulancia.celdaY)
+                linea = f"({celda.fila},{celda.columna}):{celda.tipo}:{mapa.ambulancia.energia_left}\n"
                 archivo_salida.write(linea)
         print("Camino encontrado y escrito en 'camino_solucion.txt'")
     else:
