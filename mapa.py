@@ -185,7 +185,10 @@ class Mapa:
     def calcular_heuristica(self, estado_actual, heuristica):
         #if heuristica == 1:
             # Calcula la heurística según el número de pacientes restantes
-            pacientes_restantes = estado_actual.pacientes_restantes + estado_actual.ambulancia.pacientesN + estado_actual.ambulancia.pacientesC
+            pacientes_C_recogidos = 1 if estado_actual.ambulancia.pacientesC > 0 else 0
+            pacientes_N_recogidos = 1 if estado_actual.ambulancia.pacientesN > 0 else 0
+
+            pacientes_restantes = estado_actual.pacientes_restantes + pacientes_C_recogidos + pacientes_N_recogidos
             return pacientes_restantes
 
     def objetivo_cumplido(self, nodo):
