@@ -183,19 +183,36 @@ class Mapa:
         return acciones_y_sucesores
 
     def calcular_heuristica(self, estado_actual, heuristica):
-        #if heuristica == 1:
+        if heuristica == 1:
             # Calcula la heurística según el número de pacientes restantes
-            pacientes_C_recogidos = 1 if estado_actual.ambulancia.pacientesC > 0 else 0
-            pacientes_N_recogidos = 1 if estado_actual.ambulancia.pacientesN > 0 else 0
+            visita_a_CC = 1 if estado_actual.ambulancia.pacientesC > 0 else 0
+            visita_A_CN = 1 if estado_actual.ambulancia.pacientesN > 0 else 0
 
-            pacientes_restantes = estado_actual.pacientes_restantes + pacientes_C_recogidos + pacientes_N_recogidos
+            pacientes_restantes = estado_actual.pacientes_restantes + visita_a_CC + visita_A_CN
             return pacientes_restantes
+
+        if heuristica == 2:
+            #buscar celdas con pacientes
+            pacientes_pendientes = []
+            for celda in estado_actual.celdas:
+                if celda.tipo == 'C' or celda.tipo == 'N':
+                    pacientes_pendientes.append((celda.fila, celda.columna))
+
+            distancias_paciente_ambulancia = [self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, p) for p in pacientes_pendientes]
+            distancia_min = 0
+            for distancia in distancias_paciente_ambulancia:
+                if distancia < distancia_min:
+                    distancia_min = distancia
+            return distancia_min
 
     def objetivo_cumplido(self, nodo):
         # Verifica si el estado cumple con el objetivo
         pacientes_restantes = nodo.mapa.pacientes_restantes
         pacientes_en_ambulancia = nodo.mapa.ambulancia.pacientesN + nodo.mapa.ambulancia.pacientesC
         return pacientes_restantes == 0 and pacientes_en_ambulancia == 0
+
+    def distancia_manhattan(self, ambulanciaX, ambulanciaY, celda2):
+        return abs(ambulanciaX - celda2[0]) + abs(ambulanciaY - celda2[1])
 
 
 
