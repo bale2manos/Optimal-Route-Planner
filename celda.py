@@ -8,4 +8,14 @@ class Celda:
         else:
             self.coste = 1
 
+    def __str__(self):
+        return f"({self.fila}, {self.columna}): {self.tipo}"
+
+    def __hash__(self):
+        return hash((self.fila, self.columna, self.tipo))
+
+    def __eq__(self, other):
+        return (self.fila, self.columna, self.tipo) == (other.fila, other.columna, other.tipo)
+
+
 

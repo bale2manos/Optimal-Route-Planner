@@ -1,4 +1,5 @@
 import copy
+from collections import deque
 
 from celda import Celda
 from ambulancia import Ambulancia
@@ -13,6 +14,25 @@ class Mapa:
         self.celdas = self.cargar_mapa(archivo)
         self.acciones_posibles = ['recargar_energia', 'recoger_paciente', 'descargar_pacientes', 'mover_arriba', 'mover_abajo', 'mover_izquierda', 'mover_derecha']
         self.ambulancia = self.crear_ambulancia()
+
+
+    def __eq__(self, other):
+        return self.celdas == other.celdas and self.ambulancia == other.ambulancia
+
+    def __str__(self):
+        celdas = ''
+        for celda in self.celdas:
+            celdas += str(celda) + ';'
+        ambulancia = str(self.ambulancia)
+        return celdas + 'Ambulance: ' + ambulancia
+
+    def __hash__(self):
+        celdas = ''
+        for celda in self.celdas:
+            celdas += str(celda) + ';'
+        ambulancia = str(self.ambulancia)
+        return hash(celdas + 'Ambulance: ' + ambulancia)
+
 
     def mostrar_mapa(self):
         for celda in self.celdas:
@@ -120,21 +140,16 @@ class Mapa:
 
     def a_estrella(self, heuristica):
         inicio = copy.deepcopy(self)
-        cola_prioridad = PriorityQueue()
-        cola_prioridad.put(Nodo(inicio, 0, 0, [inicio], 'Inicio', 0))
-        costos_acumulados = {inicio: 0}
+        cola_prioridad = PriorityQueue()  # cola de prioridad para almacenar los nodos
+        valor_heuristica = self.calcular_heuristica(inicio, heuristica)
+        cola_prioridad.put(Nodo(inicio, 0, valor_heuristica, [inicio]))
+        coste_por_nodo = {inicio: 0}  # almacenar el coste acumulado de cada nodo
         i = 1
         while not cola_prioridad.empty():
             nodo_actual = cola_prioridad.get()
-
-
-            print('Nodo actual: ', i, ' - ', nodo_actual.accion_previa, ' - ', nodo_actual.mapa.pacientes_restantes)
-            print('Coste acumulado: ', nodo_actual.coste_acumulado)
-            print('Heuristica: ', self.calcular_heuristica(nodo_actual.mapa, 1))
-            print('Prioridad: ', nodo_actual.prioridad)
-            print('Ambulancia: ', nodo_actual.mapa.ambulancia.celdaX, nodo_actual.mapa.ambulancia.celdaY, ' energía - ', nodo_actual.mapa.ambulancia.energia_left)
-
-
+            print('Nodo actual: ' + str(i))
+            print('Coste acumulado: ' + str(nodo_actual.coste_acumulado))
+            print('Prioridad: ' + str(nodo_actual.prioridad))
 
             if self.objetivo_cumplido(nodo_actual):
                 # Reconstruir el camino y devolverlo
@@ -142,13 +157,22 @@ class Mapa:
 
             for accion, nuevo_estado, coste_accion in self.obtener_sucesores_y_coste(nodo_actual):
                 nuevo_coste_acumulado = nodo_actual.coste_acumulado + coste_accion
-                if nuevo_estado not in costos_acumulados or nuevo_coste_acumulado < costos_acumulados[nuevo_estado]:
-                    costos_acumulados[nuevo_estado] = nuevo_coste_acumulado
-                    heuristica = self.calcular_heuristica(nuevo_estado, heuristica)
-                    prioridad = nuevo_coste_acumulado + heuristica
+
+                if nuevo_estado not in coste_por_nodo:
+                    coste_por_nodo[nuevo_estado] = nuevo_coste_acumulado
+                    valor_heuristica_nodo = self.calcular_heuristica(nuevo_estado, heuristica)
                     nuevo_camino = nodo_actual.camino_recorrido + [nuevo_estado]
-                    cola_prioridad.put(Nodo(nuevo_estado, nuevo_coste_acumulado, prioridad, nuevo_camino, accion, i))
-            i += 1
+                    cola_prioridad.put(Nodo(nuevo_estado, nuevo_coste_acumulado, valor_heuristica_nodo, nuevo_camino))
+                elif nuevo_coste_acumulado < coste_por_nodo[nuevo_estado]:
+                    for nodo in cola_prioridad.queue:
+                        if nodo.mapa == nuevo_estado:
+                            nodo.coste_acumulado = nuevo_coste_acumulado
+                            nodo.prioridad = nuevo_coste_acumulado + nodo.heuristica
+                            nodo.camino_recorrido = nodo_actual.camino_recorrido + [nuevo_estado]
+                            break
+                    coste_por_nodo[nuevo_estado] = nuevo_coste_acumulado
+
+
 
         # No hay camino posible
         return None
@@ -194,16 +218,43 @@ class Mapa:
         if heuristica == 2:
             #buscar celdas con pacientes
             pacientes_pendientes = []
+            celda_centro_CC = None
+            celda_centro_CN = None
             for celda in estado_actual.celdas:
                 if celda.tipo == 'C' or celda.tipo == 'N':
-                    pacientes_pendientes.append((celda.fila, celda.columna))
+                    pacientes_pendientes.append((celda.fila, celda.columna, celda.tipo))
+                if celda.tipo == 'CC':
+                    celda_centro_CC = (celda.fila, celda.columna)
+                if celda.tipo == 'CN':
+                    celda_centro_CN = (celda.fila, celda.columna)
 
-            distancias_paciente_ambulancia = [self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, p) for p in pacientes_pendientes]
-            distancia_min = 0
-            for distancia in distancias_paciente_ambulancia:
-                if distancia < distancia_min:
-                    distancia_min = distancia
-            return distancia_min
+            distancia_paciente_mas_lejano = 0
+            distancia_hasta_centro = 0
+
+            for celda in pacientes_pendientes:
+                distancia = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda)
+                if distancia > distancia_paciente_mas_lejano:
+                    distancia_paciente_mas_lejano = distancia
+                    if celda[2] == 'C':
+                        distancia_hasta_centro = self.distancia_manhattan(celda_centro_CC[0], celda_centro_CC[1], celda)
+                    else:
+                        distancia_hasta_centro = self.distancia_manhattan(celda_centro_CN[0], celda_centro_CN[1], celda)
+
+            if distancia_paciente_mas_lejano == 0:
+                if estado_actual.ambulancia.pacientesC > 0 and estado_actual.ambulancia.pacientesN > 0:
+                    distancia_CC = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda_centro_CC)
+                    distancia_CN = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda_centro_CN)
+                    return min(distancia_CC, distancia_CN)
+                elif estado_actual.ambulancia.pacientesC > 0:
+                    return self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda_centro_CC)
+                elif estado_actual.ambulancia.pacientesN > 0:
+                    return self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda_centro_CN)
+
+            return distancia_paciente_mas_lejano + distancia_hasta_centro
+
+
+
+
 
     def objetivo_cumplido(self, nodo):
         # Verifica si el estado cumple con el objetivo
@@ -213,6 +264,5 @@ class Mapa:
 
     def distancia_manhattan(self, ambulanciaX, ambulanciaY, celda2):
         return abs(ambulanciaX - celda2[0]) + abs(ambulanciaY - celda2[1])
-
 
 

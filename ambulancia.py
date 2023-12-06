@@ -7,6 +7,15 @@ class Ambulancia:
         self.celdaY = celdaY
         self.energia_left = 50
 
+    def __eq__(self, other):
+        return (self.celdaX, self.celdaY, self.energia_left, self.pacientesN, self.pacientesC) == (other.celdaX, other.celdaY, other.energia_left, other.pacientesN, other.pacientesC)
+
+    def __str__(self):
+        return f"({self.celdaX}, {self.celdaY}): {self.energia_left}, {self.pacientesN}, {self.pacientesC}"
+
+    def __hash__(self):
+        return hash((self.celdaX, self.celdaY, self.energia_left, self.pacientesN, self.pacientesC))
+
     def recargar_energia(self):
         self.energia_left = 50
 

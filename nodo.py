@@ -1,16 +1,33 @@
 from queue import PriorityQueue
 
+
 class Nodo:
-    def __init__(self, mapa, coste_acumulado, prioridad, camino_recorrido, accion_previa, numero_nodo):
+    def __init__(self, mapa, coste_acumulado, heuristica, camino_recorrido):
         self.mapa = mapa
         self.coste_acumulado = coste_acumulado
-        self.prioridad = prioridad                   # f(n) = g(n) + h(n)
+        self.heuristica = heuristica
+        self.prioridad = coste_acumulado + heuristica  # f(n) = g(n) + h(n)
         self.camino_recorrido = camino_recorrido  # Nueva variable para almacenar el camino
-        self.numero_nodo = numero_nodo
-        self.accion_previa = accion_previa
+
+    def __eq__(self, other):
+        if not isinstance(other, Nodo):
+            return False
+
+        return self.mapa == other.mapa
+
+    def __hash__(self):
+        celdas = ''
+        for celda in self.mapa.celdas:
+            celdas += str(celda) + ';'
+        ambulancia = str(self.mapa.ambulancia)
+        return hash(celdas + 'Ambulance: ' + ambulancia)
 
     def __lt__(self, other):
         return self.prioridad < other.prioridad
 
     def __str__(self):
-        return "Coste acumulado: " + str(self.coste_acumulado) + " Prioridad: " + str(self.prioridad)
+        celdas = ''
+        for celda in self.mapa.celdas:
+            celdas += str(celda) + ';'
+        ambulancia = str(self.mapa.ambulancia)
+        return celdas + 'Ambulance: ' + ambulancia
