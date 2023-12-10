@@ -271,7 +271,11 @@ class Mapa:
         # Verifica si el estado cumple con el objetivo
         pacientes_restantes = nodo.mapa.pacientes_restantes
         pacientes_en_ambulancia = nodo.mapa.ambulancia.pacientesN + nodo.mapa.ambulancia.pacientesC
-        return pacientes_restantes == 0 and pacientes_en_ambulancia == 0
+        ambulanciaX = nodo.mapa.ambulancia.celdaX
+        ambulanciaY = nodo.mapa.ambulancia.celdaY
+        celda_ambulancia = nodo.mapa.get_celda(ambulanciaX, ambulanciaY)
+        celda_ambulancia_tipo = celda_ambulancia.tipo
+        return pacientes_restantes == 0 and pacientes_en_ambulancia == 0 and celda_ambulancia_tipo == 'P'
 
     def distancia_manhattan(self, ambulanciaX, ambulanciaY, celda2):
         return abs(ambulanciaX - celda2[0]) + abs(ambulanciaY - celda2[1])
