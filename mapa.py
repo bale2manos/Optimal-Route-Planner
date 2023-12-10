@@ -97,7 +97,8 @@ class Mapa:
         ambulanciaY = self.ambulancia.celdaY
         celda_ambulancia = self.get_celda(ambulanciaX, ambulanciaY)
 
-        if (celda_ambulancia.tipo == 'CC' and self.ambulancia.pacientesC > 0) or (celda_ambulancia.tipo == 'CN' and self.ambulancia.pacientesN > 0):
+        if ((celda_ambulancia.tipo == 'CC' and self.ambulancia.pacientesC > 0) or
+                (celda_ambulancia.tipo == 'CN' and self.ambulancia.pacientesN > 0 and self.ambulancia.pacientesC == 0)):
             self.ambulancia.descargar_pacientes(celda_ambulancia.tipo)
             return 0
         return -1
