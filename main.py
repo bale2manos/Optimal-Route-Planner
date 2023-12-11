@@ -1,10 +1,25 @@
 import csv
 import sys
 from mapa import Mapa
+import time
 
+def start_timer():
+    return time.time()
 
+def stop_timer(start_time):
+    elapsed_time = time.time() - start_time
+    return elapsed_time
+
+def format_time(seconds):
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    return "{:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds))
 
 def main():
+    #timer start
+    start_time = start_timer()
+
+
     if len(sys.argv) != 3:
         print("Uso: python ASTARTraslados.py <path mapa.csv> <num-h>")
         sys.exit(1)
@@ -29,7 +44,12 @@ def main():
                 archivo_salida.write(linea)
         print("Camino encontrado y escrito en 'camino_solucion.txt'")
     else:
-        print("No se encontró un camino.")
+         print("No se encontró un camino.")
+
+    elapsed_time = stop_timer(start_time)
+    formatted_time = format_time(elapsed_time)
+    print(f"Elapsed time: {formatted_time}")
+
 
 if __name__ == "__main__":
     main()

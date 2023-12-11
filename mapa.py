@@ -179,6 +179,7 @@ class Mapa:
                     valor_heuristica_nodo = self.calcular_heuristica(nuevo_estado, heuristica)
                     nuevo_camino = nodo_actual.camino_recorrido + [nuevo_estado]
                     # Check if the node is already in the priority queue
+                    # TODO no aparece en las implementaciones de python, pero creemos que es bueno para evitar duplicados
                     for node in cola_prioridad.queue:
                         if node.mapa == nuevo_estado:
                             cola_prioridad.queue.remove(node)
