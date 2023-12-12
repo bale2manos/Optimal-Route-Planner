@@ -228,6 +228,9 @@ class Mapa:
             return pacientes_restantes
 
         if heuristica == 2:
+            #TODO añadir parking
+            #TODO añadir si hay pacientes en la ambulancia que tenga q ir a un centro
+
             #buscar celdas con pacientes
             pacientes_pendientes = []
             celda_centro_CC = None
