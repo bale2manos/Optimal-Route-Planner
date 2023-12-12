@@ -7,6 +7,7 @@ from queue import PriorityQueue
 
 class Mapa:
     def __init__(self, archivo):
+        self.nodos_expandidos = 0
         self.pacientes_restantes = 0
         self.max_rows = 0
         self.max_columns = 0
@@ -14,7 +15,8 @@ class Mapa:
         self.acciones_posibles = ['recargar_energia', 'recoger_paciente', 'descargar_pacientes', 'mover_arriba', 'mover_abajo', 'mover_izquierda', 'mover_derecha']
         self.ambulancia = self.crear_ambulancia()
 
-
+    def incrementar_nodos_expandidos(self):
+        self.nodos_expandidos += 1
     def __eq__(self, other):
         return self.celdas == other.celdas and self.ambulancia == other.ambulancia
 
@@ -79,10 +81,10 @@ class Mapa:
         if celda_ambulancia.tipo == 'N' or celda_ambulancia.tipo == 'C':
             posible_recoger_paciente = False
             if celda_ambulancia.tipo == 'N':
-                if self.ambulancia.pacientesN + self.ambulancia.pacientesC < 10:
+                if self.ambulancia.pacientesC == 0 and self.ambulancia.pacientesN < 10:
                     posible_recoger_paciente = True
             elif celda_ambulancia.tipo == 'C':
-                if self.ambulancia.pacientesC < 2:
+                if self.ambulancia.pacientesC < 2 and self.ambulancia.pacientesN < 9:
                     posible_recoger_paciente = True
 
             if posible_recoger_paciente:
@@ -97,8 +99,10 @@ class Mapa:
         ambulanciaY = self.ambulancia.celdaY
         celda_ambulancia = self.get_celda(ambulanciaX, ambulanciaY)
 
-        if ((celda_ambulancia.tipo == 'CC' and self.ambulancia.pacientesC > 0) or
-                (celda_ambulancia.tipo == 'CN' and self.ambulancia.pacientesN > 0 and self.ambulancia.pacientesC == 0)):
+        if (celda_ambulancia.tipo == 'CC' and self.ambulancia.pacientesC > 0):
+            self.ambulancia.descargar_pacientes(celda_ambulancia.tipo)
+            return 0
+        elif (celda_ambulancia.tipo == 'CN' and self.ambulancia.pacientesN > 0 and self.ambulancia.pacientesC == 0):
             self.ambulancia.descargar_pacientes(celda_ambulancia.tipo)
             return 0
         return -1
@@ -161,9 +165,12 @@ class Mapa:
             print('Prioridad:', nodo_actual.prioridad)
             print('Energía restante:', nodo_actual.mapa.ambulancia.energia_left)
 
+            self.incrementar_nodos_expandidos()
+
+
             if self.objetivo_cumplido(nodo_actual):
                 # Reconstruir el camino y devolverlo
-                return nodo_actual.camino_recorrido
+                return nodo_actual.camino_recorrido, nodo_actual.coste_acumulado, self.nodos_expandidos
 
             for accion, nuevo_estado, coste_accion in self.obtener_sucesores_y_coste(nodo_actual):
                 nuevo_coste_acumulado = nodo_actual.coste_acumulado + coste_accion
@@ -242,31 +249,186 @@ class Mapa:
                     celda_centro_CC = (celda.fila, celda.columna)
                 if celda.tipo == 'CN':
                     celda_centro_CN = (celda.fila, celda.columna)
+                if celda.tipo == 'P':
+                    celda_parking = (celda.fila, celda.columna)
+
+            distancia_paciente_mas_lejano = 0
+            distancia_hasta_centro = 0
+            distancia_hasta_parking = 0
+
+            # SI AMBULANCIA VA LLENA
+            if estado_actual.ambulancia.pacientesC == 2:
+                distancia_hasta_CC = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda_centro_CC)
+                distancia_hasta_parking = self.distancia_manhattan(celda_centro_CC[0], celda_centro_CC[1], celda_parking)
+                return distancia_hasta_CC + distancia_hasta_parking
+
+            if estado_actual.ambulancia.pacientesN == 10:
+                distancia_hasta_CN = self.distancia_manhattan(estado_actual.ambulancia.celdaX,
+                                                                  estado_actual.ambulancia.celdaY, celda_centro_CN)
+                distancia_hasta_parking = self.distancia_manhattan(celda_centro_CN[0], celda_centro_CN[1],
+                                                                   celda_parking)
+                return distancia_hasta_CN + distancia_hasta_parking
+
+            # SI AMBULANCIA NO LLENA
+            # SI LLEVO UN CONTAGIOSO DEBO BUSCAR AL OTRO Y SI NO -> A SU CENTRO
+            if estado_actual.ambulancia.pacientesC == 1:
+                distancia_contagioso_mas_lejano = 0 #TODO por que no al mas cercano?
+                for paciente in pacientes_pendientes:
+                    if paciente[2] == 'C':
+                        distancia = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, paciente)
+                        if distancia > distancia_contagioso_mas_lejano:
+                            distancia_contagioso_mas_lejano = distancia
+                            distancia_desde_paciente_hasta_CC = self.distancia_manhattan(celda_centro_CC[0], celda_centro_CC[1], paciente)
+                            distancia_desde_CC_hasta_parking = self.distancia_manhattan(celda_centro_CC[0], celda_centro_CC[1], celda_parking)
+
+                if distancia_contagioso_mas_lejano != 0:
+                    return distancia_contagioso_mas_lejano + distancia_desde_paciente_hasta_CC + distancia_desde_CC_hasta_parking
+
+            # SI NO LLEVO CONTAGIOSO Y AMBULANCIA NO LLENA
+            # SI HAY PACIENTES EN EL MAPA
+            for paciente in pacientes_pendientes:
+                distancia = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, paciente)
+                if distancia > distancia_paciente_mas_lejano:
+                    distancia_paciente_mas_lejano = distancia
+                    if paciente[2] == 'C':
+                        distancia_hasta_centro = self.distancia_manhattan(celda_centro_CC[0], celda_centro_CC[1], paciente)
+                        distancia_hasta_parking = self.distancia_manhattan(celda_centro_CC[0], celda_centro_CC[1], celda_parking)
+                    else:  # celda[2] == 'N'
+                        distancia_hasta_centro = self.distancia_manhattan(celda_centro_CN[0], celda_centro_CN[1], paciente)
+                        distancia_hasta_parking = self.distancia_manhattan(celda_centro_CN[0], celda_centro_CN[1], celda_parking)
+
+            # SI NO HAY PACIENTES EN EL MAPA
+            if distancia_paciente_mas_lejano == 0:
+                if estado_actual.ambulancia.pacientesC > 0 and estado_actual.ambulancia.pacientesN > 0:
+                    distancia_hasta_centro_CC = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda_centro_CC)
+                    distancia_desde_CC_hasta_CN = self.distancia_manhattan(celda_centro_CC[0], celda_centro_CC[1], celda_centro_CN)
+                    distancia_hasta_parking_desde_CN = self.distancia_manhattan(celda_centro_CN[0], celda_centro_CN[1], celda_parking)
+                    return distancia_hasta_centro_CC + distancia_desde_CC_hasta_CN + distancia_hasta_parking_desde_CN
+
+                elif estado_actual.ambulancia.pacientesC > 0:
+                    distancia_hasta_CC = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda_centro_CC)
+                    distancia_desde_CC_hasta_parking = self.distancia_manhattan(celda_centro_CC[0], celda_centro_CC[1], celda_parking)
+                    return distancia_hasta_CC + distancia_desde_CC_hasta_parking
+
+                elif estado_actual.ambulancia.pacientesN > 0:
+                    distancia_hasta_CN = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda_centro_CN)
+                    distancia_desde_CN_hasta_parking = self.distancia_manhattan(celda_centro_CN[0], celda_centro_CN[1], celda_parking)
+                    return distancia_hasta_CN + distancia_desde_CN_hasta_parking
+
+
+            return distancia_paciente_mas_lejano + distancia_hasta_centro + distancia_hasta_parking
+
+        if heuristica == 3:
+            # buscar celdas con pacientes
+            pacientes_pendientes = []
+            celda_centro_CC = None
+            celda_centro_CN = None
+            for celda in estado_actual.celdas:
+                if celda.tipo == 'C' or celda.tipo == 'N':
+                    pacientes_pendientes.append((celda.fila, celda.columna, celda.tipo))
+                if celda.tipo == 'CC':
+                    celda_centro_CC = (celda.fila, celda.columna)
+                if celda.tipo == 'CN':
+                    celda_centro_CN = (celda.fila, celda.columna)
+                if celda.tipo == 'P':
+                    celda_parking = (celda.fila, celda.columna)
+
+            distancia_paciente_mas_lejano = 0
+            distancia_hasta_centro = 0
+            distancia_hasta_parking = 0
+
+            # SI HAY PACIENTES EN EL MAPA
+            for paciente in pacientes_pendientes:
+                distancia = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY,
+                                                     paciente)
+                if distancia > distancia_paciente_mas_lejano:
+                    distancia_paciente_mas_lejano = distancia
+                    if paciente[2] == 'C':
+                        distancia_hasta_centro = self.distancia_manhattan(celda_centro_CC[0], celda_centro_CC[1],
+                                                                          paciente)
+                        distancia_hasta_parking = self.distancia_manhattan(celda_centro_CC[0], celda_centro_CC[1],
+                                                                           celda_parking)
+                    else:  # celda[2] == 'N'
+                        distancia_hasta_centro = self.distancia_manhattan(celda_centro_CN[0], celda_centro_CN[1],
+                                                                          paciente)
+                        distancia_hasta_parking = self.distancia_manhattan(celda_centro_CN[0], celda_centro_CN[1],
+                                                                           celda_parking)
+
+            # SI NO HAY PACIENTES EN EL MAPA
+            if distancia_paciente_mas_lejano == 0:
+                if estado_actual.ambulancia.pacientesC > 0 and estado_actual.ambulancia.pacientesN > 0:
+                    distancia_hasta_centro_CC = self.distancia_manhattan(estado_actual.ambulancia.celdaX,
+                                                                         estado_actual.ambulancia.celdaY,
+                                                                         celda_centro_CC)
+                    distancia_desde_CC_hasta_CN = self.distancia_manhattan(celda_centro_CC[0], celda_centro_CC[1],
+                                                                           celda_centro_CN)
+                    distancia_hasta_parking_desde_CN = self.distancia_manhattan(celda_centro_CN[0], celda_centro_CN[1],
+                                                                                celda_parking)
+                    return distancia_hasta_centro_CC + distancia_desde_CC_hasta_CN + distancia_hasta_parking_desde_CN
+
+                elif estado_actual.ambulancia.pacientesC > 0:
+                    distancia_hasta_CC = self.distancia_manhattan(estado_actual.ambulancia.celdaX,
+                                                                  estado_actual.ambulancia.celdaY, celda_centro_CC)
+                    distancia_desde_CC_hasta_parking = self.distancia_manhattan(celda_centro_CC[0], celda_centro_CC[1],
+                                                                                celda_parking)
+                    return distancia_hasta_CC + distancia_desde_CC_hasta_parking
+
+                elif estado_actual.ambulancia.pacientesN > 0:
+                    distancia_hasta_CN = self.distancia_manhattan(estado_actual.ambulancia.celdaX,
+                                                                  estado_actual.ambulancia.celdaY, celda_centro_CN)
+                    distancia_desde_CN_hasta_parking = self.distancia_manhattan(celda_centro_CN[0], celda_centro_CN[1],
+                                                                                celda_parking)
+                    return distancia_hasta_CN + distancia_desde_CN_hasta_parking
+
+            return distancia_paciente_mas_lejano + distancia_hasta_centro + distancia_hasta_parking
+
+        if heuristica == 4:
+            # buscar celdas con pacientes
+            pacientes_pendientes = []
+            celda_centro_CC = None
+            celda_centro_CN = None
+            for celda in estado_actual.celdas:
+                if celda.tipo == 'C' or celda.tipo == 'N':
+                    pacientes_pendientes.append((celda.fila, celda.columna, celda.tipo))
+                if celda.tipo == 'CC':
+                    celda_centro_CC = (celda.fila, celda.columna)
+                if celda.tipo == 'CN':
+                    celda_centro_CN = (celda.fila, celda.columna)
 
             distancia_paciente_mas_lejano = 0
             distancia_hasta_centro = 0
 
-            for celda in pacientes_pendientes:
-                distancia = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda)
+            # SI HAY PACIENTES EN EL MAPA
+            for paciente in pacientes_pendientes:
+                distancia = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY,
+                                                     paciente)
                 if distancia > distancia_paciente_mas_lejano:
                     distancia_paciente_mas_lejano = distancia
-                    if celda[2] == 'C':
-                        distancia_hasta_centro = self.distancia_manhattan(celda_centro_CC[0], celda_centro_CC[1], celda)
+                    if paciente[2] == 'C':
+                        distancia_hasta_centro = self.distancia_manhattan(celda_centro_CC[0], celda_centro_CC[1],
+                                                                          paciente)
                     else:  # celda[2] == 'N'
-                        distancia_hasta_centro = self.distancia_manhattan(celda_centro_CN[0], celda_centro_CN[1], celda)
+                        distancia_hasta_centro = self.distancia_manhattan(celda_centro_CN[0], celda_centro_CN[1],
+                                                                          paciente)
 
+            # SI NO HAY PACIENTES EN EL MAPA
             if distancia_paciente_mas_lejano == 0:
                 if estado_actual.ambulancia.pacientesC > 0 and estado_actual.ambulancia.pacientesN > 0:
-                    distancia_CC = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda_centro_CC)
-                    distancia_CN = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda_centro_CN)
-                    return max(distancia_CC, distancia_CN)
+                    distancia_hasta_CC = self.distancia_manhattan(estado_actual.ambulancia.celdaX,
+                                                                  estado_actual.ambulancia.celdaY, celda_centro_CC)
+                    return distancia_hasta_CC
+
                 elif estado_actual.ambulancia.pacientesC > 0:
-                    return self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda_centro_CC)
+                    distancia_hasta_CC = self.distancia_manhattan(estado_actual.ambulancia.celdaX,
+                                                                  estado_actual.ambulancia.celdaY, celda_centro_CC)
+                    return distancia_hasta_CC
+
                 elif estado_actual.ambulancia.pacientesN > 0:
-                    return self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda_centro_CN)
+                    distancia_hasta_CN = self.distancia_manhattan(estado_actual.ambulancia.celdaX,
+                                                                  estado_actual.ambulancia.celdaY, celda_centro_CN)
+                    return distancia_hasta_CN
 
             return distancia_paciente_mas_lejano + distancia_hasta_centro
-
 
 
 
@@ -284,4 +446,60 @@ class Mapa:
     def distancia_manhattan(self, ambulanciaX, ambulanciaY, celda2):
         return abs(ambulanciaX - celda2[0]) + abs(ambulanciaY - celda2[1])
 
+
+import csv
+import sys
+from mapa import Mapa
+import time
+
+def start_timer():
+    return time.time()
+
+def stop_timer(start_time):
+    elapsed_time = time.time() - start_time
+    return elapsed_time
+
+def format_time(seconds):
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    return "{:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds))
+
+def main():
+    #timer start
+    start_time = start_timer()
+
+
+    if len(sys.argv) != 3:
+        print("Uso: python ASTARTraslados.py <path mapa.csv> <num-h>")
+        sys.exit(1)
+
+    archivo_mapa = sys.argv[1]
+    num_heuristica = int(sys.argv[2])
+
+    # Validar que num_heuristica sea 1 o 2
+    if num_heuristica not in {1, 2}:
+        print("El parámetro num-h debe ser 1 o 2.")
+        sys.exit(1)
+
+    mapa = Mapa(archivo_mapa)
+    camino = mapa.a_estrella(num_heuristica)
+
+    if camino:
+        # Escribir el camino en un archivo
+        with open('camino_solucion-2.txt', 'w') as archivo_salida:
+            for mapa in camino:
+                celda = mapa.get_celda(mapa.ambulancia.celdaX, mapa.ambulancia.celdaY)
+                linea = f"({celda.fila},{celda.columna}):{celda.tipo}:{mapa.ambulancia.energia_left}\n"
+                archivo_salida.write(linea)
+        print("Camino encontrado y escrito en 'camino_solucion.txt'")
+    else:
+         print("No se encontró un camino.")
+
+    elapsed_time = stop_timer(start_time)
+    formatted_time = format_time(elapsed_time)
+    print(f"Elapsed time: {formatted_time}")
+
+
+if __name__ == "__main__":
+    main()
 
