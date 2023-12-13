@@ -14,6 +14,7 @@ class Mapa:
         self.celdas = self.cargar_mapa(archivo)
         self.acciones_posibles = ['recargar_energia', 'recoger_paciente', 'descargar_pacientes', 'mover_arriba', 'mover_abajo', 'mover_izquierda', 'mover_derecha']
         self.ambulancia = self.crear_ambulancia()
+        self.parking = Celda(0, 0, 'P')
 
     def incrementar_nodos_expandidos(self):
         self.nodos_expandidos += 1
@@ -51,6 +52,8 @@ class Mapa:
                 celdas.append(Celda(fila+1, columna+1, mapa[fila][columna]))
                 if mapa[fila][columna] == 'N' or mapa[fila][columna] == 'C':
                     self.pacientes_restantes += 1
+                elif mapa[fila][columna] == 'P':
+                    self.parking = celdas[-1]
 
         return celdas
 
@@ -200,6 +203,8 @@ class Mapa:
         # Devuelve las acciones posibles y los nuevos estados alcanzables desde el estado dado
         # Puedes modificar esto según tu implementación específica
         acciones_y_sucesores = []
+
+
         for accion in self.acciones_posibles:
             # crear una copia en cada iteracion del nodo, que no se modificara en la siguiente iteracion
             nuevo_mapa = copy.deepcopy(nodo.mapa)
@@ -221,7 +226,11 @@ class Mapa:
                 coste_accion = nuevo_mapa.mover_derecha()
 
             if coste_accion != -1:
-                acciones_y_sucesores.append((accion, nuevo_mapa, coste_accion))
+                ambulancia = nuevo_mapa.ambulancia
+                posicion_ambulancia = (ambulancia.celdaX, ambulancia.celdaY)
+                distancia_parking = self.distancia_manhattan(self.parking.fila, self.parking.columna, posicion_ambulancia)
+                if distancia_parking <= ambulancia.energia_left:
+                    acciones_y_sucesores.append((accion, nuevo_mapa, coste_accion))
 
         return acciones_y_sucesores
 
@@ -445,61 +454,3 @@ class Mapa:
 
     def distancia_manhattan(self, ambulanciaX, ambulanciaY, celda2):
         return abs(ambulanciaX - celda2[0]) + abs(ambulanciaY - celda2[1])
-
-
-import csv
-import sys
-from mapa import Mapa
-import time
-
-def start_timer():
-    return time.time()
-
-def stop_timer(start_time):
-    elapsed_time = time.time() - start_time
-    return elapsed_time
-
-def format_time(seconds):
-    minutes, seconds = divmod(seconds, 60)
-    hours, minutes = divmod(minutes, 60)
-    return "{:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds))
-
-def main():
-    #timer start
-    start_time = start_timer()
-
-
-    if len(sys.argv) != 3:
-        print("Uso: python ASTARTraslados.py <path mapa.csv> <num-h>")
-        sys.exit(1)
-
-    archivo_mapa = sys.argv[1]
-    num_heuristica = int(sys.argv[2])
-
-    # Validar que num_heuristica sea 1 o 2
-    if num_heuristica not in {1, 2}:
-        print("El parámetro num-h debe ser 1 o 2.")
-        sys.exit(1)
-
-    mapa = Mapa(archivo_mapa)
-    camino = mapa.a_estrella(num_heuristica)
-
-    if camino:
-        # Escribir el camino en un archivo
-        with open('camino_solucion-2.txt', 'w') as archivo_salida:
-            for mapa in camino:
-                celda = mapa.get_celda(mapa.ambulancia.celdaX, mapa.ambulancia.celdaY)
-                linea = f"({celda.fila},{celda.columna}):{celda.tipo}:{mapa.ambulancia.energia_left}\n"
-                archivo_salida.write(linea)
-        print("Camino encontrado y escrito en 'camino_solucion.txt'")
-    else:
-         print("No se encontró un camino.")
-
-    elapsed_time = stop_timer(start_time)
-    formatted_time = format_time(elapsed_time)
-    print(f"Elapsed time: {formatted_time}")
-
-
-if __name__ == "__main__":
-    main()
-

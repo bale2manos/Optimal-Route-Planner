@@ -46,7 +46,7 @@ def main():
                 celda = mapa.get_celda(mapa.ambulancia.celdaX, mapa.ambulancia.celdaY)
                 linea = f"({celda.fila},{celda.columna}):{celda.tipo}:{mapa.ambulancia.energia_left}\n"
                 archivo_salida.write(linea)
-        print("Camino encontrado y escrito en 'camino_solucion.txt'")
+        print("Camino encontrado y escrito en " + nombre_archivo)
 
         generar_estadisticas(elapsed_time, coste_acumulado, camino, nodos_expandidos, nombre_archivo_mapa, num_heuristica)
     else:
