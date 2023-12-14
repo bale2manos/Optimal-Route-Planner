@@ -1,5 +1,4 @@
 import copy
-from collections import deque
 from celda import Celda
 from ambulancia import Ambulancia, ENERGY_REFILL
 from nodo import Nodo
@@ -39,6 +38,8 @@ class Mapa:
     def mostrar_mapa(self):
         for celda in self.celdas:
             print(celda.tipo, end='')
+
+
 
     def cargar_mapa(self, archivo):
         with open(archivo, 'r') as file:
@@ -197,7 +198,7 @@ class Mapa:
                     cola_prioridad.put(Nodo(nuevo_estado, nuevo_coste_acumulado, valor_heuristica_nodo, nuevo_camino))
 
         # No hay camino posible
-        return None
+        return None, None, self.nodos_expandidos
 
     def obtener_sucesores_y_coste(self, nodo):
         # Devuelve las acciones posibles y los nuevos estados alcanzables desde el estado dado
@@ -226,6 +227,7 @@ class Mapa:
                 coste_accion = nuevo_mapa.mover_derecha()
 
             if coste_accion != -1:
+                # poda de los estados que no son validos ya que no tienen energia suficiente para llegar al parking
                 ambulancia = nuevo_mapa.ambulancia
                 posicion_ambulancia = (ambulancia.celdaX, ambulancia.celdaY)
                 distancia_parking = self.distancia_manhattan(self.parking.fila, self.parking.columna, posicion_ambulancia)
@@ -251,6 +253,7 @@ class Mapa:
             pacientes_pendientes = []
             celda_centro_CC = None
             celda_centro_CN = None
+            celda_parking = None
             for celda in estado_actual.celdas:
                 if celda.tipo == 'C' or celda.tipo == 'N':
                     pacientes_pendientes.append((celda.fila, celda.columna, celda.tipo))
@@ -262,7 +265,7 @@ class Mapa:
                     celda_parking = (celda.fila, celda.columna)
 
             distancia_paciente_mas_lejano = 0
-            distancia_hasta_centro = 0
+            distancia_desde_paciente_hasta_CC, distancia_desde_CC_hasta_parking = 0, 0
             distancia_hasta_parking = 0
 
             # SI AMBULANCIA VA LLENA
@@ -330,8 +333,7 @@ class Mapa:
         if heuristica == 3:
             # buscar celdas con pacientes
             pacientes_pendientes = []
-            celda_centro_CC = None
-            celda_centro_CN = None
+            celda_centro_CC, celda_centro_CN, celda_parking = None, None, None
             for celda in estado_actual.celdas:
                 if celda.tipo == 'C' or celda.tipo == 'N':
                     pacientes_pendientes.append((celda.fila, celda.columna, celda.tipo))
@@ -439,6 +441,33 @@ class Mapa:
 
             return distancia_paciente_mas_lejano + distancia_hasta_centro
 
+        if heuristica == 5:
+            # buscar celdas con pacientes
+            pacientes_pendientes = []
+            parking = None
+            for celda in estado_actual.celdas:
+                if celda.tipo == 'C' or celda.tipo == 'N':
+                    pacientes_pendientes.append((celda.fila, celda.columna, celda.tipo))
+                if celda.tipo == 'P':
+                    parking = (celda.fila, celda.columna)
+
+            distancia_paciente_mas_lejano = 0
+            distancia_hasta_parking = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, parking)
+
+            # SI HAY PACIENTES EN EL MAPA
+            for paciente in pacientes_pendientes:
+                distancia = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY,
+                                                     paciente)
+                if distancia > distancia_paciente_mas_lejano:
+                    distancia_paciente_mas_lejano = distancia
+                    distancia_hasta_parking = self.distancia_manhattan(paciente[0], paciente[1], parking)
+
+            visita_a_CC = 1 if estado_actual.ambulancia.pacientesC > 0 else 0
+            visita_A_CN = 1 if estado_actual.ambulancia.pacientesN > 0 else 0
+
+            pacientes_restantes = estado_actual.pacientes_restantes -1 + visita_a_CC + visita_A_CN
+
+            return distancia_paciente_mas_lejano + pacientes_restantes + distancia_hasta_parking
 
 
 

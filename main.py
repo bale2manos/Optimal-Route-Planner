@@ -28,7 +28,7 @@ def main():
     num_heuristica = int(sys.argv[2])
 
     # Validar que num_heuristica sea 1 o 2
-    if num_heuristica not in {1, 2, 3, 4}:
+    if num_heuristica not in {1, 2, 3, 4, 5,6}:
         print("El parámetro num-h debe ser 1, 2 o 3.")
         sys.exit(1)
 
@@ -50,7 +50,13 @@ def main():
 
         generar_estadisticas(elapsed_time, coste_acumulado, camino, nodos_expandidos, nombre_archivo_mapa, num_heuristica)
     else:
-         print("No se encontró un camino.")
+        nombre_archivo_mapa = archivo_mapa.split('/')[-1].split('.')[0]
+        nombre_archivo = nombre_archivo_mapa + '-' + str(num_heuristica) + '.output'
+        with open(nombre_archivo, 'w') as archivo_salida:
+            archivo_salida.write("Insoluble")
+        generar_estadisticas(elapsed_time, 'Inalcanzable', [], nodos_expandidos, nombre_archivo_mapa, num_heuristica)
+
+        print("No se encontró un camino.")
 
 
     formatted_time = format_time(elapsed_time)
