@@ -346,7 +346,7 @@ class Mapa:
 
             distancia_paciente_mas_lejano = 0
             distancia_hasta_centro = 0
-            distancia_hasta_parking = 0
+            distancia_hasta_parking = self.distancia_manhattan(estado_actual.ambulancia.celdaX, estado_actual.ambulancia.celdaY, celda_parking)
 
             # SI HAY PACIENTES EN EL MAPA
             for paciente in pacientes_pendientes:
