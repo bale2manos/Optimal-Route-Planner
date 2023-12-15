@@ -2,6 +2,7 @@ import csv
 import sys
 from mapa import Mapa
 import time
+import os
 
 def start_timer():
     return time.time()
@@ -16,9 +17,8 @@ def format_time(seconds):
     return "{:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds))
 
 def main():
-    #timer start
+    # timer start
     start_time = start_timer()
-
 
     if len(sys.argv) != 3:
         print("Uso: python ASTARTraslados.py <path mapa.csv> <num-h>")
@@ -28,7 +28,7 @@ def main():
     num_heuristica = int(sys.argv[2])
 
     # Validar que num_heuristica sea 1 o 2
-    if num_heuristica not in {1, 2, 3, 4, 5,6}:
+    if num_heuristica not in {1, 2, 3, 4, 5, 6}:
         print("El parámetro num-h debe ser 1, 2 o 3.")
         sys.exit(1)
 
@@ -37,38 +37,42 @@ def main():
     elapsed_time = stop_timer(start_time)
 
     if camino:
-        # Escribir el camino en un archivo
-        # Obtener el nombre del mapa sin el formato del final
-        nombre_archivo_mapa = archivo_mapa.split('/')[-1].split('.')[0]
+        # Obtener el directorio del archivo de entrada
+        directorio_entrada = os.path.dirname(os.path.abspath(archivo_mapa))
+
+        # Escribir el camino en un archivo en el mismo directorio que el archivo de entrada
+        nombre_archivo_mapa = os.path.splitext(os.path.basename(archivo_mapa))[0]
         nombre_archivo = nombre_archivo_mapa + '-' + str(num_heuristica) + '.output'
-        with open(nombre_archivo, 'w') as archivo_salida:
+        ruta_salida = os.path.join(directorio_entrada, nombre_archivo)
+
+        with open(ruta_salida, 'w') as archivo_salida:
             for mapa in camino:
                 celda = mapa.get_celda(mapa.ambulancia.celdaX, mapa.ambulancia.celdaY)
                 linea = f"({celda.fila},{celda.columna}):{celda.tipo}:{mapa.ambulancia.energia_left}\n"
                 archivo_salida.write(linea)
-        print("Camino encontrado y escrito en " + nombre_archivo)
+        print("Camino encontrado y escrito en " + ruta_salida)
 
-        generar_estadisticas(elapsed_time, coste_acumulado, camino, nodos_expandidos, nombre_archivo_mapa, num_heuristica)
+        generar_estadisticas(elapsed_time, coste_acumulado, camino, nodos_expandidos, directorio_entrada, nombre_archivo_mapa, num_heuristica)
     else:
-        nombre_archivo_mapa = archivo_mapa.split('/')[-1].split('.')[0]
+        nombre_archivo_mapa = os.path.splitext(os.path.basename(archivo_mapa))[0]
         nombre_archivo = nombre_archivo_mapa + '-' + str(num_heuristica) + '.output'
-        with open(nombre_archivo, 'w') as archivo_salida:
+        ruta_salida = os.path.join(directorio_entrada, nombre_archivo)
+
+        with open(ruta_salida, 'w') as archivo_salida:
             archivo_salida.write("Insoluble")
-        generar_estadisticas(elapsed_time, 'Inalcanzable', [], nodos_expandidos, nombre_archivo_mapa, num_heuristica)
+        generar_estadisticas(elapsed_time, 'Inalcanzable', [], nodos_expandidos, directorio_entrada, nombre_archivo_mapa, num_heuristica)
 
         print("No se encontró un camino.")
-
 
     formatted_time = format_time(elapsed_time)
     print(f"Elapsed time: {formatted_time}")
 
-
-def generar_estadisticas(tiempo_total, coste, camino, nodos_expandidos, archivo_mapa, num_heuristica):
+def generar_estadisticas(tiempo_total, coste, camino, nodos_expandidos, directorio_entrada, archivo_mapa, num_heuristica):
 
     # Longitud del plan es el número de nodos desde el inicial hasta la solución
     longitud_plan = len(camino)
 
-    archivo_salida = archivo_mapa + '-' + str(num_heuristica) + '.stat'
+    archivo_salida = os.path.join(directorio_entrada, archivo_mapa + '-' + str(num_heuristica) + '.stat')
     # Escribir estadísticas en el archivo
     with open(archivo_salida, 'w') as archivo_estadisticas:
         archivo_estadisticas.write(f"Tiempo total: {tiempo_total}\n")
@@ -76,8 +80,5 @@ def generar_estadisticas(tiempo_total, coste, camino, nodos_expandidos, archivo_
         archivo_estadisticas.write(f"Longitud del plan: {longitud_plan}\n")
         archivo_estadisticas.write(f"Nodos expandidos: {nodos_expandidos}\n")
 
-
-
 if __name__ == "__main__":
     main()
-
